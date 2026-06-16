@@ -9,7 +9,10 @@ stopnie={
     "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
 
     "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
-    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1}
+    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
+
+    "Profesjonalny Rekruter":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1},
+    "Opiekun Rekruterów":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1}
 }
 
 def popraw_tekst(tekst):
@@ -20,10 +23,7 @@ def popraw_tekst(tekst):
 
 def normalizuj(tekst):
     tekst=popraw_tekst(tekst).lower()
-    znaki={
-        "ą":"a","ć":"c","ę":"e","ł":"l","ń":"n",
-        "ó":"o","ś":"s","ź":"z","ż":"z"
-    }
+    znaki={"ą":"a","ć":"c","ę":"e","ł":"l","ń":"n","ó":"o","ś":"s","ź":"z","ż":"z"}
     for a,b in znaki.items():
         tekst=tekst.replace(a,b)
     return tekst
@@ -50,6 +50,14 @@ def znajdz_stopien(tekst):
     kierownik="kierownik" in s
     dyrektor="dyrektor" in s
     menager=("menager" in s or "manager" in s or "menedzer" in s)
+    rekruter="rekruter" in s
+    profesjonalny="profesjonalny" in s
+    opiekun="opiekun" in s
+
+    if opiekun and rekruter:
+        return "Opiekun Rekruterów"
+    if profesjonalny and rekruter:
+        return "Profesjonalny Rekruter"
 
     if probny and dyrektor:
         return "Próbny Dyrektor"
@@ -75,7 +83,12 @@ def oblicz(tekst):
     kursy=liczba_z_tekstu(r"Ilość\s*kursów\s*:\s*([\d ]+)",tekst)
     godziny=liczba_z_tekstu(r"Ilość\s*godzin\s*:\s*([\d ]+)",tekst)
     delegacje=liczba_z_tekstu(r"Ilość\s*delegacji\s*:\s*([\d ]+)",tekst)
+
     zatrudnienia=liczba_z_tekstu(r"Ilość\s*zatrudnień\s*:\s*([\d ]+)",tekst)
+
+    if zatrudnienia==0:
+        zatrudnienia=liczba_z_tekstu(r"Ilość\s*przyprowadzeń\s*:\s*([\d ]+)",tekst)
+
     telefon=tekst_z_tekstu(r"Nr\.?\s*Telefonu\s*:\s*(.+)",tekst)
 
     stopien=znajdz_stopien(tekst)
@@ -126,7 +139,7 @@ if st.button("Oblicz"):
         st.write("Kursy:",dane["kursy"])
         st.write("Godziny:",dane["godziny"])
         st.write("Delegacje:",dane["delegacje"])
-        st.write("Zatrudnienia:",dane["zatrudnienia"])
+        st.write("Zatrudnienia / przyprowadzenia:",dane["zatrudnienia"])
         st.write("Telefon:",dane["telefon"])
 
         st.header("Wynagrodzenie: "+formatuj(dane["wynik"])+" $")

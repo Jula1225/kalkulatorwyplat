@@ -3,10 +3,13 @@ import re
 
 stopnie={
     "Kierownik":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
-    "Menager":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
-    "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
     "Próbny Kierownik":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":0.5},
-    "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1}
+
+    "Menager":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
+    "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
+
+    "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
+    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1}
 }
 
 def popraw_tekst(tekst):
@@ -14,6 +17,16 @@ def popraw_tekst(tekst):
     tekst=re.sub(r"[ \t]+"," ",tekst)
     tekst=re.sub(r"\n+","\n",tekst)
     return tekst.strip()
+
+def normalizuj(tekst):
+    tekst=popraw_tekst(tekst).lower()
+    znaki={
+        "ą":"a","ć":"c","ę":"e","ł":"l","ń":"n",
+        "ó":"o","ś":"s","ź":"z","ż":"z"
+    }
+    for a,b in znaki.items():
+        tekst=tekst.replace(a,b)
+    return tekst
 
 def liczba_z_tekstu(wzor,tekst):
     tekst=popraw_tekst(tekst)
@@ -31,17 +44,25 @@ def tekst_z_tekstu(wzor,tekst):
 
 def znajdz_stopien(tekst):
     s=tekst_z_tekstu(r"Stopień\s*:\s*(.+)",tekst)
-    s=popraw_tekst(s).lower()
+    s=normalizuj(s)
 
-    if "próbny kierownik" in s or "probny kierownik" in s:
-        return "Próbny Kierownik"
-    if "próbny menager" in s or "probny menager" in s or "próbny manager" in s or "probny manager" in s:
+    probny="probny" in s
+    kierownik="kierownik" in s
+    dyrektor="dyrektor" in s
+    menager=("menager" in s or "manager" in s or "menedzer" in s)
+
+    if probny and dyrektor:
+        return "Próbny Dyrektor"
+    if probny and menager:
         return "Próbny Menager"
-    if "dyrektor" in s:
+    if probny and kierownik:
+        return "Próbny Kierownik"
+
+    if dyrektor:
         return "Dyrektor"
-    if "menager" in s or "manager" in s:
+    if menager:
         return "Menager"
-    if "kierownik" in s:
+    if kierownik:
         return "Kierownik"
 
     return ""
@@ -88,7 +109,7 @@ def oblicz(tekst):
 
     return dane,""
 
-st.title("Kalkulator zarobków")
+st.title("Kalkulator wypłat Vanilla")
 
 tekst=st.text_area("Wklej formularz pracownika:",height=300)
 

@@ -2,17 +2,17 @@ import streamlit as st
 import re
 
 stopnie={
-    "Kierownik":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
-    "Próbny Kierownik":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":0.5},
+    "Kierownik":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
+    "Próbny Kierownik":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":0.5},
 
-    "Menager":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
-    "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
+    "Menager":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
+    "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
 
-    "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
-    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
+    "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
+    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
 
-    "Profesjonalny Rekruter":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1},
-    "Opiekun Rekruterów":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1}
+    "Profesjonalny Rekruter":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1},
+    "Opiekun Rekruterów":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1}
 }
 
 def popraw_tekst(tekst):
@@ -83,6 +83,24 @@ def znajdz_stopien(tekst):
 def formatuj(liczba):
     return f"{int(liczba):,}".replace(","," ")
 
+def sprawdz_norme(kursy,godziny,delegacje,d):
+    norma_ok=True
+    powody=[]
+
+    if kursy<d["norma_kursow"]:
+        norma_ok=False
+        powody.append("kursy")
+
+    if godziny<d["norma_godzin"]:
+        norma_ok=False
+        powody.append("godziny")
+
+    if delegacje<d["norma_delegacji"]:
+        norma_ok=False
+        powody.append("delegacje")
+
+    return norma_ok,powody
+
 def oblicz(tekst):
     imie=tekst_z_tekstu(r"Imię\s*i\s*nazwisko\s*:\s*(.+)",tekst)
     kursy=liczba_z_tekstu(r"Ilość\s*kursów\s*:\s*([^\n]+)",tekst)
@@ -114,6 +132,8 @@ def oblicz(tekst):
 
     wynik=wynik*d["procent"]
 
+    norma_ok,powody=sprawdz_norme(kursy,godziny,delegacje,d)
+
     dane={
         "imie":imie,
         "stopien":stopien,
@@ -123,14 +143,15 @@ def oblicz(tekst):
         "zatrudnienia":zatrudnienia,
         "telefon":telefon,
         "suma_podana":suma_podana,
-        "wynik":wynik
+        "wynik":wynik,
+        "norma_ok":norma_ok,
+        "powody":powody
     }
 
     return dane,""
 
 def podziel_na_osoby(tekst):
     tekst=popraw_tekst(tekst)
-
     czesci=re.split(r"(?=Imię\s*i\s*nazwisko\s*:)",tekst,flags=re.IGNORECASE)
 
     osoby=[]
@@ -153,19 +174,26 @@ def sprawdz_wiele(tekst):
             wyniki.append({
                 "imie":imie,
                 "status":"incorrect",
-                "blad":blad,
+                "powod":"błąd danych",
                 "podana":0,
                 "poprawna":0
             })
         else:
             status="correct"
+            powody=[]
+
             if int(dane["wynik"])!=int(dane["suma_podana"]):
                 status="incorrect"
+                powody.append("zła suma")
+
+            if not dane["norma_ok"]:
+                status="incorrect"
+                powody.append("brak normy: "+", ".join(dane["powody"]))
 
             wyniki.append({
                 "imie":dane["imie"],
                 "status":status,
-                "blad":"",
+                "powod":", ".join(powody),
                 "podana":dane["suma_podana"],
                 "poprawna":dane["wynik"]
             })
@@ -195,6 +223,11 @@ if tryb=="Jedna osoba":
             st.write("Zatrudnienia / przyprowadzenia:",dane["zatrudnienia"])
             st.write("Telefon:",dane["telefon"])
 
+            if dane["norma_ok"]:
+                st.success("Norma wyrobiona")
+            else:
+                st.error("Norma niewyrobiona: "+", ".join(dane["powody"]))
+
             st.header("Wynagrodzenie: "+formatuj(dane["wynik"])+" $")
 
 if tryb=="Sprawdź wiele osób":
@@ -209,3 +242,4 @@ if tryb=="Sprawdź wiele osób":
                     st.write(w["imie"]+" — correct")
                 else:
                     st.write(w["imie"]+" — incorrect")
+                    st.caption("Powód: "+w["powod"])

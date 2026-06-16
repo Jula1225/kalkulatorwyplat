@@ -17,6 +17,9 @@ stopnie={
 
 def popraw_tekst(tekst):
     tekst=tekst.replace("\xa0"," ")
+    tekst=tekst.replace("`","")
+    tekst=tekst.replace("*","")
+    tekst=tekst.replace("@","")
     tekst=re.sub(r"[ \t]+"," ",tekst)
     tekst=re.sub(r"\n+","\n",tekst)
     return tekst.strip()
@@ -32,7 +35,9 @@ def liczba_z_tekstu(wzor,tekst):
     tekst=popraw_tekst(tekst)
     x=re.search(wzor,tekst,re.IGNORECASE)
     if x:
-        return int(x.group(1).replace(" ",""))
+        liczba=re.sub(r"\D","",x.group(1))
+        if liczba!="":
+            return int(liczba)
     return 0
 
 def tekst_z_tekstu(wzor,tekst):
@@ -46,7 +51,7 @@ def znajdz_stopien(tekst):
     s=tekst_z_tekstu(r"Stopień\s*:\s*(.+)",tekst)
     s=normalizuj(s)
 
-    probny="probny" in s
+    probny=("probny" in s or "probnym" in s)
     kierownik="kierownik" in s
     dyrektor="dyrektor" in s
     menager=("menager" in s or "manager" in s or "menedzer" in s)
@@ -80,16 +85,16 @@ def formatuj(liczba):
 
 def oblicz(tekst):
     imie=tekst_z_tekstu(r"Imię\s*i\s*nazwisko\s*:\s*(.+)",tekst)
-    kursy=liczba_z_tekstu(r"Ilość\s*kursów\s*:\s*([\d ]+)",tekst)
-    godziny=liczba_z_tekstu(r"Ilość\s*godzin\s*:\s*([\d ]+)",tekst)
-    delegacje=liczba_z_tekstu(r"Ilość\s*delegacji\s*:\s*([\d ]+)",tekst)
-
-    zatrudnienia=liczba_z_tekstu(r"Ilość\s*zatrudnień\s*:\s*([\d ]+)",tekst)
+    kursy=liczba_z_tekstu(r"Ilość\s*kursów\s*:\s*([^\n]+)",tekst)
+    godziny=liczba_z_tekstu(r"Ilość\s*godzin\s*:\s*([^\n]+)",tekst)
+    delegacje=liczba_z_tekstu(r"Ilość\s*delegacji\s*:\s*([^\n]+)",tekst)
+    zatrudnienia=liczba_z_tekstu(r"Ilość\s*zatrudnień\s*:\s*([^\n]+)",tekst)
 
     if zatrudnienia==0:
-        zatrudnienia=liczba_z_tekstu(r"Ilość\s*przyprowadzeń\s*:\s*([\d ]+)",tekst)
+        zatrudnienia=liczba_z_tekstu(r"Ilość\s*przyprowadzeń\s*:\s*([^\n]+)",tekst)
 
-    telefon=tekst_z_tekstu(r"Nr\.?\s*Telefonu\s*:\s*(.+)",tekst)
+    telefon=tekst_z_tekstu(r"Nr\.?\s*telefonu\s*:\s*(.+)",tekst)
+    suma_podana=liczba_z_tekstu(r"Suma\s*:\s*([^\n]+)",tekst)
 
     stopien=znajdz_stopien(tekst)
 
@@ -117,29 +122,90 @@ def oblicz(tekst):
         "delegacje":delegacje,
         "zatrudnienia":zatrudnienia,
         "telefon":telefon,
+        "suma_podana":suma_podana,
         "wynik":wynik
     }
 
     return dane,""
 
+def podziel_na_osoby(tekst):
+    tekst=popraw_tekst(tekst)
+
+    czesci=re.split(r"(?=Imię\s*i\s*nazwisko\s*:)",tekst,flags=re.IGNORECASE)
+
+    osoby=[]
+
+    for czesc in czesci:
+        if re.search(r"Imię\s*i\s*nazwisko\s*:",czesc,re.IGNORECASE) and re.search(r"Suma\s*:",czesc,re.IGNORECASE):
+            osoby.append(czesc)
+
+    return osoby
+
+def sprawdz_wiele(tekst):
+    osoby=podziel_na_osoby(tekst)
+    wyniki=[]
+
+    for osoba in osoby:
+        dane,blad=oblicz(osoba)
+
+        if blad!="":
+            imie=tekst_z_tekstu(r"Imię\s*i\s*nazwisko\s*:\s*(.+)",osoba)
+            wyniki.append({
+                "imie":imie,
+                "status":"incorrect",
+                "blad":blad,
+                "podana":0,
+                "poprawna":0
+            })
+        else:
+            status="correct"
+            if int(dane["wynik"])!=int(dane["suma_podana"]):
+                status="incorrect"
+
+            wyniki.append({
+                "imie":dane["imie"],
+                "status":status,
+                "blad":"",
+                "podana":dane["suma_podana"],
+                "poprawna":dane["wynik"]
+            })
+
+    return wyniki
+
 st.title("Kalkulator wypłat Vanilla")
 
-tekst=st.text_area("Wklej formularz pracownika:",height=300)
+tryb=st.radio("Wybierz tryb:",["Jedna osoba","Sprawdź wiele osób"])
 
-if st.button("Oblicz"):
-    dane,blad=oblicz(tekst)
+tekst=st.text_area("Wklej dane:",height=350)
 
-    if blad!="":
-        st.error(blad)
-    else:
-        st.success("Obliczono wynagrodzenie")
+if tryb=="Jedna osoba":
+    if st.button("Oblicz"):
+        dane,blad=oblicz(tekst)
 
-        st.write("Imię i nazwisko:",dane["imie"])
-        st.write("Stopień:",dane["stopien"])
-        st.write("Kursy:",dane["kursy"])
-        st.write("Godziny:",dane["godziny"])
-        st.write("Delegacje:",dane["delegacje"])
-        st.write("Zatrudnienia / przyprowadzenia:",dane["zatrudnienia"])
-        st.write("Telefon:",dane["telefon"])
+        if blad!="":
+            st.error(blad)
+        else:
+            st.success("Obliczono wynagrodzenie")
 
-        st.header("Wynagrodzenie: "+formatuj(dane["wynik"])+" $")
+            st.write("Imię i nazwisko:",dane["imie"])
+            st.write("Stopień:",dane["stopien"])
+            st.write("Kursy:",dane["kursy"])
+            st.write("Godziny:",dane["godziny"])
+            st.write("Delegacje:",dane["delegacje"])
+            st.write("Zatrudnienia / przyprowadzenia:",dane["zatrudnienia"])
+            st.write("Telefon:",dane["telefon"])
+
+            st.header("Wynagrodzenie: "+formatuj(dane["wynik"])+" $")
+
+if tryb=="Sprawdź wiele osób":
+    if st.button("Sprawdź"):
+        wyniki=sprawdz_wiele(tekst)
+
+        if len(wyniki)==0:
+            st.error("Nie znaleziono żadnych poprawnych bloków z danymi.")
+        else:
+            for w in wyniki:
+                if w["status"]=="correct":
+                    st.write(w["imie"]+" — correct")
+                else:
+                    st.write(w["imie"]+" — incorrect")

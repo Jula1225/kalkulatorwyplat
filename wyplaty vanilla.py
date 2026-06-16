@@ -8,7 +8,7 @@ stopnie={
     "Menager":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
     "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
 
-    "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
+    "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":0,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
     "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
 
     "Profesjonalny Rekruter":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1},

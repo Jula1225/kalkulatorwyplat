@@ -257,16 +257,27 @@ if tryb=="Sprawdź wiele osób":
         if len(wyniki)==0:
             st.error("Nie znaleziono żadnych poprawnych bloków z danymi.")
         else:
-            for w in wyniki:
-                if w["status"]=="correct":
-                    st.success(w["imie"]+" — correct")
-                else:
-                    st.error(w["imie"]+" — incorrect")
+            suma_wszystkich=0
+all_correct=True
 
-                st.code(w["rozpiska"])
+for w in wyniki:
+    suma_wszystkich+=int(w["poprawna"])
 
-                if w["status"]=="incorrect":
-                    if w["powod"]!="":
-                        st.caption("Powód: "+w["powod"])
-                    if w["podana"]>0:
-                        st.caption("Wpisano: "+formatuj(w["podana"])+" $")
+    if w["status"]!="correct":
+        all_correct=False
+
+    if w["status"]=="correct":
+        st.success(w["imie"]+" — correct")
+    else:
+        st.error(w["imie"]+" — incorrect")
+
+    st.code(w["rozpiska"])
+
+    if w["status"]=="incorrect":
+        if w["powod"]!="":
+            st.caption("Powód: "+w["powod"])
+        if w["podana"]>0:
+            st.caption("Wpisano: "+formatuj(w["podana"])+" $")
+
+if all_correct:
+    st.header("Suma wszystkich wypłat: "+formatuj(suma_wszystkich)+" $")

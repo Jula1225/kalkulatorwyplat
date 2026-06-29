@@ -9,7 +9,7 @@ stopnie={
     "Próbny Menager":{"podstawa":1700000,"norma_kursow":20,"norma_godzin":12,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":100000,"procent":1},
 
     "Dyrektor":{"podstawa":2700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":0,"zatrudnienie":50000,"kursy":300000,"godzina":140000,"procent":1},
-    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"norma_delegacji":5,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
+    "Próbny Dyrektor":{"podstawa":2200000,"norma_kursow":15,"norma_godzin":10,"norma_delegacji":0,"zatrudnienie":50000,"kursy":300000,"godzina":120000,"procent":1},
 
     "Profesjonalny Rekruter":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1},
     "Opiekun Rekruterów":{"podstawa":1700000,"norma_kursow":10,"norma_godzin":10,"norma_delegacji":10,"zatrudnienie":50000,"kursy":0,"godzina":55000,"procent":1}
@@ -30,6 +30,9 @@ def normalizuj(tekst):
     for a,b in znaki.items():
         tekst=tekst.replace(a,b)
     return tekst
+
+def formatuj(liczba):
+    return f"{int(liczba):,}".replace(","," ")
 
 def liczba_z_tekstu(wzor,tekst):
     tekst=popraw_tekst(tekst)
@@ -80,9 +83,6 @@ def znajdz_stopien(tekst):
 
     return ""
 
-def formatuj(liczba):
-    return f"{int(liczba):,}".replace(","," ")
-
 def sprawdz_norme(kursy,godziny,delegacje,d):
     norma_ok=True
     powody=[]
@@ -95,7 +95,7 @@ def sprawdz_norme(kursy,godziny,delegacje,d):
         norma_ok=False
         powody.append("godziny")
 
-    if delegacje<d["norma_delegacji"]:
+    if d["norma_delegacji"]>0 and delegacje<d["norma_delegacji"]:
         norma_ok=False
         powody.append("delegacje")
 
@@ -121,16 +121,25 @@ def oblicz(tekst):
 
     d=stopnie[stopien]
 
-    wynik=d["podstawa"]
-    wynik+=zatrudnienia*d["zatrudnienie"]
+    podstawa=d["podstawa"]
+    kwota_zatrudnienia=zatrudnienia*d["zatrudnienie"]
 
-    if kursy>d["norma_kursow"]:
-        wynik+=((kursy-d["norma_kursow"])//20)*d["kursy"]
+    nadmiar_kursow=max(0,kursy-d["norma_kursow"])
+    premie_kursowe=nadmiar_kursow//20
+    kwota_kursy=premie_kursowe*d["kursy"]
 
-    if godziny>d["norma_godzin"]:
-        wynik+=(godziny-d["norma_godzin"])*d["godzina"]
+    nadgodziny=max(0,godziny-d["norma_godzin"])
+    kwota_godziny=nadgodziny*d["godzina"]
 
-    wynik=wynik*d["procent"]
+    wynik_przed=podstawa+kwota_zatrudnienia+kwota_kursy+kwota_godziny
+    wynik=wynik_przed*d["procent"]
+
+    rozpiska=f"{formatuj(podstawa)} + {formatuj(kwota_zatrudnienia)} + ({nadmiar_kursow}→{formatuj(kwota_kursy)}) + ({nadgodziny}→{formatuj(kwota_godziny)})"
+
+    if d["procent"]==0.5:
+        rozpiska+=" ÷2"
+
+    rozpiska+=" = "+formatuj(wynik)
 
     norma_ok,powody=sprawdz_norme(kursy,godziny,delegacje,d)
 
@@ -145,7 +154,8 @@ def oblicz(tekst):
         "suma_podana":suma_podana,
         "wynik":wynik,
         "norma_ok":norma_ok,
-        "powody":powody
+        "powody":powody,
+        "rozpiska":rozpiska
     }
 
     return dane,""
@@ -176,7 +186,8 @@ def sprawdz_wiele(tekst):
                 "status":"incorrect",
                 "powod":"błąd danych",
                 "podana":0,
-                "poprawna":0
+                "poprawna":0,
+                "rozpiska":"nie dało się policzyć"
             })
         else:
             status="correct"
@@ -195,7 +206,8 @@ def sprawdz_wiele(tekst):
                 "status":status,
                 "powod":", ".join(powody),
                 "podana":dane["suma_podana"],
-                "poprawna":dane["wynik"]
+                "poprawna":dane["wynik"],
+                "rozpiska":dane["rozpiska"]
             })
 
     return wyniki
@@ -223,12 +235,20 @@ if tryb=="Jedna osoba":
             st.write("Zatrudnienia / przyprowadzenia:",dane["zatrudnienia"])
             st.write("Telefon:",dane["telefon"])
 
+            st.code(dane["rozpiska"])
+
             if dane["norma_ok"]:
                 st.success("Norma wyrobiona")
             else:
                 st.error("Norma niewyrobiona: "+", ".join(dane["powody"]))
 
             st.header("Wynagrodzenie: "+formatuj(dane["wynik"])+" $")
+
+            if dane["suma_podana"]>0:
+                if int(dane["wynik"])==int(dane["suma_podana"]):
+                    st.success("Podana suma jest poprawna")
+                else:
+                    st.error("Podana suma jest błędna. Wpisano: "+formatuj(dane["suma_podana"])+" $")
 
 if tryb=="Sprawdź wiele osób":
     if st.button("Sprawdź"):
@@ -239,7 +259,14 @@ if tryb=="Sprawdź wiele osób":
         else:
             for w in wyniki:
                 if w["status"]=="correct":
-                    st.write(w["imie"]+" — correct")
+                    st.success(w["imie"]+" — correct")
                 else:
-                    st.write(w["imie"]+" — incorrect")
-                    st.caption("Powód: "+w["powod"])
+                    st.error(w["imie"]+" — incorrect")
+
+                st.code(w["rozpiska"])
+
+                if w["status"]=="incorrect":
+                    if w["powod"]!="":
+                        st.caption("Powód: "+w["powod"])
+                    if w["podana"]>0:
+                        st.caption("Wpisano: "+formatuj(w["podana"])+" $")
